@@ -4,16 +4,14 @@ const API_BASE = 'http://localhost:5078/api'; // For local dev
 
 // Types
 type User = { id: string; gymStarCoins: number };
-type ClassSession = { id: number; date: string; capacity: number; bookingsCount: number; spotsLeft: number };
 type Booking = { id: number; date: string; hasAuction: boolean; auctionActive: boolean };
-type Auction = { id: number; date: string; startingPrice: number; expirationDate: string; highestBid: number; bidsCount: number };
+type Auction = { id: number; date: string; startingPrice: number; expirationDate: string; highestBid: number; bidsCount: number; originalOwner: string };
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [usernameInput, setUsernameInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'classes' | 'auctions' | 'my-bookings'>('classes');
+  const [activeTab, setActiveTab] = useState<'auctions' | 'my-entries'>('auctions');
 
-  const [classes, setClasses] = useState<ClassSession[]>([]);
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [myBookings, setMyBookings] = useState<Booking[]>([]);
 
@@ -27,13 +25,10 @@ function App() {
 
   const loadData = async () => {
     if (!user) return;
-    if (activeTab === 'classes') {
-      const res = await fetch(`${API_BASE}/classes`);
-      setClasses(await res.json());
-    } else if (activeTab === 'auctions') {
+    if (activeTab === 'auctions') {
       const res = await fetch(`${API_BASE}/auctions`);
       setAuctions(await res.json());
-    } else if (activeTab === 'my-bookings') {
+    } else if (activeTab === 'my-entries') {
       const res = await fetch(`${API_BASE}/my-bookings/${user.id}`);
       setMyBookings(await res.json());
     }
@@ -48,21 +43,18 @@ function App() {
     return () => clearInterval(interval);
   }, [user, activeTab]);
 
-  const bookClass = async (id: number) => {
+  const listForAuction = async () => {
     if (!user) return;
-    const res = await fetch(`${API_BASE}/classes/${id}/book?userId=${user.id}`, { method: 'POST' });
-    if (res.ok) loadData();
-    else alert(await res.text());
-  };
-
-  const listForAuction = async (id: number) => {
     const price = prompt("Enter starting price (GymStar coins):", "100");
     if (!price) return;
     const duration = prompt("Enter duration in hours:", "24");
     if (!duration) return;
 
-    const res = await fetch(`${API_BASE}/bookings/${id}/auction?startingPrice=${price}&durationHours=${duration}`, { method: 'POST' });
-    if (res.ok) loadData();
+    const res = await fetch(`${API_BASE}/auctions/sell?userId=${user.id}&startingPrice=${price}&durationHours=${duration}`, { method: 'POST' });
+    if (res.ok) {
+        alert("Entry successfully listed for auction!");
+        loadData();
+    }
     else alert(await res.text());
   };
 
@@ -82,7 +74,7 @@ function App() {
       <div className="container animate-fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="glass-panel" style={{ width: '400px', textAlign: 'center' }}>
           <h1 className="text-gradient">GymStar Trofa</h1>
-          <p style={{ marginBottom: '2rem', color: 'var(--text-secondary)' }}>Welcome to the Hyrox Saturday Marketplace</p>
+          <p style={{ marginBottom: '2rem', color: 'var(--text-secondary)' }}>Second-Hand Saturday Entries</p>
           <input 
             type="text" 
             className="input-field" 
@@ -114,42 +106,13 @@ function App() {
 
       <div className="container">
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-          <button className={activeTab === 'classes' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('classes')}>
-            Classes
-          </button>
           <button className={activeTab === 'auctions' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('auctions')}>
-            Auctions
+            Marketplace
           </button>
-          <button className={activeTab === 'my-bookings' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('my-bookings')}>
-            My Bookings
+          <button className={activeTab === 'my-entries' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('my-entries')}>
+            My Entries
           </button>
         </div>
-
-        {activeTab === 'classes' && (
-          <div>
-            <h2>Upcoming Saturday Classes</h2>
-            <div className="grid">
-              {classes.map(c => (
-                <div key={c.id} className="glass-panel">
-                  <h3>{new Date(c.date).toLocaleString()}</h3>
-                  <div className="stats-row">
-                    <span>Capacity: {c.capacity}</span>
-                    <span>Spots Left: <span className="stat-value">{c.spotsLeft}</span></span>
-                  </div>
-                  <button 
-                    className="btn-primary" 
-                    style={{ width: '100%' }} 
-                    disabled={c.spotsLeft === 0}
-                    onClick={() => bookClass(c.id)}
-                  >
-                    {c.spotsLeft === 0 ? 'Full' : 'Book Spot'}
-                  </button>
-                </div>
-              ))}
-              {classes.length === 0 && <p>No classes available.</p>}
-            </div>
-          </div>
-        )}
 
         {activeTab === 'auctions' && (
           <div>
@@ -158,6 +121,10 @@ function App() {
               {auctions.map(a => (
                 <div key={a.id} className="glass-panel">
                   <h3>{new Date(a.date).toLocaleString()}</h3>
+                  <div className="stats-row">
+                    <span>Seller:</span>
+                    <span>{a.originalOwner}</span>
+                  </div>
                   <div className="stats-row">
                     <span>Starting Price:</span>
                     <span className="stat-value">🪙 {a.startingPrice}</span>
@@ -173,20 +140,27 @@ function App() {
                   <button 
                     className="btn-primary" 
                     style={{ width: '100%' }} 
+                    disabled={a.originalOwner === user.id}
                     onClick={() => placeBid(a.id, a.startingPrice, a.highestBid)}
                   >
-                    Place Bid
+                    {a.originalOwner === user.id ? 'Your Listing' : 'Place Bid'}
                   </button>
                 </div>
               ))}
-              {auctions.length === 0 && <p>No active auctions.</p>}
+              {auctions.length === 0 && <p>No active auctions right now.</p>}
             </div>
           </div>
         )}
 
-        {activeTab === 'my-bookings' && (
+        {activeTab === 'my-entries' && (
           <div>
-            <h2>My Bookings</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2>My Entries</h2>
+              <button className="btn-primary" onClick={listForAuction}>
+                + Sell a Saturday Entry
+              </button>
+            </div>
+            
             <div className="grid">
               {myBookings.map(b => (
                 <div key={b.id} className="glass-panel">
@@ -195,20 +169,15 @@ function App() {
                     <span>Status:</span>
                     {b.hasAuction ? (
                       <span className={`badge ${b.auctionActive ? 'badge-active' : 'badge-inactive'}`}>
-                        {b.auctionActive ? 'On Auction' : 'Auction Ended'}
+                        {b.auctionActive ? 'On Auction' : 'Auction Ended / Sold'}
                       </span>
                     ) : (
-                      <span className="badge badge-active">Secured</span>
+                      <span className="badge badge-active">Won / Secured</span>
                     )}
                   </div>
-                  {!b.hasAuction && (
-                    <button className="btn-secondary" style={{ width: '100%', marginTop: '1rem' }} onClick={() => listForAuction(b.id)}>
-                      List for Auction
-                    </button>
-                  )}
                 </div>
               ))}
-              {myBookings.length === 0 && <p>You have no bookings.</p>}
+              {myBookings.length === 0 && <p>You have no entries.</p>}
             </div>
           </div>
         )}

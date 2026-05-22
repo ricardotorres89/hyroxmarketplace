@@ -44,7 +44,7 @@ using (var scope = app.Services.CreateScope())
         var upcomingSaturday = DateTime.Today.AddDays((int)DayOfWeek.Saturday - (int)DateTime.Today.DayOfWeek);
         if (upcomingSaturday <= DateTime.Today) upcomingSaturday = upcomingSaturday.AddDays(7);
         
-        db.ClassSessions.Add(new ClassSession { Date = upcomingSaturday.AddHours(10), Capacity = 10 }); // 10 AM Saturday
+        db.ClassSessions.Add(new ClassSession { Date = upcomingSaturday.AddHours(10), Capacity = 50 }); // 10 AM Saturday
         db.SaveChanges();
     }
 }
@@ -119,37 +119,6 @@ api.MapGet("/me/{userId}", (AppDbContext db, string userId) =>
     return Results.Ok(user);
 });
 
-api.MapGet("/classes", (AppDbContext db) =>
-{
-    var classes = db.ClassSessions
-        .Include(c => c.Bookings)
-        .Select(c => new
-        {
-            c.Id,
-            c.Date,
-            c.Capacity,
-            BookingsCount = c.Bookings.Count,
-            SpotsLeft = c.Capacity - c.Bookings.Count
-        }).ToList();
-    return Results.Ok(classes);
-});
-
-api.MapPost("/classes/{id}/book", (AppDbContext db, int id, [FromQuery] string userId) =>
-{
-    var session = db.ClassSessions.Include(c => c.Bookings).FirstOrDefault(c => c.Id == id);
-    if (session == null) return Results.NotFound("Class not found.");
-    if (session.Bookings.Count >= session.Capacity) return Results.BadRequest("Class is full.");
-    if (session.Bookings.Any(b => b.UserId == userId)) return Results.BadRequest("Already booked.");
-    
-    var user = db.Users.Find(userId);
-    if (user == null) return Results.BadRequest("User not found.");
-
-    var booking = new Booking { ClassSessionId = id, UserId = userId };
-    db.Bookings.Add(booking);
-    db.SaveChanges();
-    return Results.Ok(booking);
-});
-
 api.MapGet("/my-bookings/{userId}", (AppDbContext db, string userId) =>
 {
     ExpireAuctions(db);
@@ -167,15 +136,20 @@ api.MapGet("/my-bookings/{userId}", (AppDbContext db, string userId) =>
     return Results.Ok(bookings);
 });
 
-api.MapPost("/bookings/{id}/auction", (AppDbContext db, int id, [FromQuery] int startingPrice, [FromQuery] int durationHours) =>
+api.MapPost("/auctions/sell", (AppDbContext db, [FromQuery] string userId, [FromQuery] int startingPrice, [FromQuery] int durationHours) =>
 {
-    var booking = db.Bookings.Include(b => b.Auction).FirstOrDefault(b => b.Id == id);
-    if (booking == null) return Results.NotFound();
-    if (booking.Auction != null) return Results.BadRequest("Already has an auction.");
+    var user = db.Users.Find(userId);
+    if (user == null) return Results.BadRequest("User not found.");
 
+    // We assume the user has a spot to sell, so we just register the booking and list it
+    var session = db.ClassSessions.OrderBy(c => c.Date).First();
+
+    var booking = new Booking { ClassSessionId = session.Id, UserId = userId };
+    db.Bookings.Add(booking);
+    
     var auction = new Auction
     {
-        BookingId = id,
+        Booking = booking,
         StartingPrice = startingPrice,
         ExpirationDate = DateTime.UtcNow.AddHours(durationHours)
     };
@@ -195,6 +169,7 @@ api.MapGet("/auctions", (AppDbContext db) =>
         {
             a.Id,
             a.Booking.ClassSession.Date,
+            OriginalOwner = a.Booking.UserId,
             a.StartingPrice,
             a.ExpirationDate,
             HighestBid = a.Bids.OrderByDescending(b => b.Amount).Select(b => b.Amount).FirstOrDefault(),
