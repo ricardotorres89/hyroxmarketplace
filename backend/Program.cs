@@ -36,18 +36,18 @@ using (var scope = app.Services.CreateScope())
     {
         db.Users.Add(new User { Id = "admin", GymStarCoins = 5000 });
         db.Users.Add(new User { Id = "john", GymStarCoins = 1000 });
+        db.Users.Add(new User { Id = "Ricardo", GymStarCoins = 1000 });
         db.SaveChanges();
     }
     
     if (!db.ClassSessions.Any())
     {
-        var upcomingSaturday = DateTime.Today.AddDays((int)DayOfWeek.Saturday - (int)DateTime.Today.DayOfWeek);
-        if (upcomingSaturday <= DateTime.Today) upcomingSaturday = upcomingSaturday.AddDays(7);
+        var sessionDate = new DateTime(2026, 5, 23, 10, 0, 0, DateTimeKind.Utc);
         
-        var session = new ClassSession { Date = upcomingSaturday.AddHours(10), Capacity = 50 };
+        var session = new ClassSession { Date = sessionDate, Capacity = 50 };
         db.ClassSessions.Add(session);
         
-        var booking = new Booking { ClassSession = session, UserId = "john" };
+        var booking = new Booking { ClassSession = session, UserId = "Ricardo" };
         db.Bookings.Add(booking);
         
         var auction = new Auction
