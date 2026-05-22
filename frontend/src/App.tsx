@@ -14,7 +14,7 @@ function App() {
   const [myBookings, setMyBookings] = useState<Booking[]>([]);
 
   const login = async () => {
-    const username = prompt("Enter your username:");
+    const username = prompt("Introduza o seu nome de utilizador:");
     if (!username) return;
     const res = await fetch(`${API_BASE}/me/${username}`);
     if (res.ok) {
@@ -45,24 +45,24 @@ function App() {
   }, [user, activeTab]);
 
   const listForAuction = async () => {
-    if (!user) { alert("Please login first."); login(); return; }
-    const price = prompt("Enter starting price (GymStar coins):", "100");
+    if (!user) { alert("Por favor, inicie sessão primeiro."); login(); return; }
+    const price = prompt("Introduzir preço base (Moedas GymStar):", "100");
     if (!price) return;
-    const duration = prompt("Enter duration in hours:", "24");
+    const duration = prompt("Introduzir duração em horas:", "24");
     if (!duration) return;
 
     const res = await fetch(`${API_BASE}/auctions/sell?userId=${user.id}&startingPrice=${price}&durationHours=${duration}`, { method: 'POST' });
     if (res.ok) {
-        alert("Entry successfully listed for auction!");
+        alert("Inscrição listada para leilão com sucesso!");
         loadData();
     }
     else alert(await res.text());
   };
 
   const placeBid = async (auctionId: number, startingPrice: number, highestBid: number) => {
-    if (!user) { alert("Please login first."); login(); return; }
+    if (!user) { alert("Por favor, inicie sessão primeiro."); login(); return; }
     const minBid = highestBid ? highestBid + 1 : startingPrice;
-    const bidAmount = prompt(`Enter bid amount (Minimum ${minBid}):`, minBid.toString());
+    const bidAmount = prompt(`Introduzir valor da licitação (Mínimo ${minBid}):`, minBid.toString());
     if (!bidAmount) return;
 
     const res = await fetch(`${API_BASE}/auctions/${auctionId}/bid?userId=${user.id}&amount=${bidAmount}`, { method: 'POST' });
@@ -73,7 +73,7 @@ function App() {
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <header className="header-mobile">
-        <div className="logo text-gradient">Hyrox Marketplace</div>
+        <div className="logo text-gradient">Aulas de sabado hyrox marketplace</div>
         <div className="user-info">
           {user ? (
             <>
@@ -81,10 +81,10 @@ function App() {
               <div className="coin-badge">
                 🪙 {user.gymStarCoins}
               </div>
-              <button className="btn-secondary" onClick={() => setUser(null)} style={{ padding: '0.4rem 1rem' }}>Logout</button>
+              <button className="btn-secondary" onClick={() => setUser(null)} style={{ padding: '0.4rem 1rem' }}>Sair</button>
             </>
           ) : (
-            <button className="btn-primary" onClick={login} style={{ padding: '0.4rem 1rem' }}>Login</button>
+            <button className="btn-primary" onClick={login} style={{ padding: '0.4rem 1rem' }}>Entrar</button>
           )}
         </div>
       </header>
@@ -92,38 +92,38 @@ function App() {
       <div className="container">
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
           <button className={activeTab === 'auctions' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('auctions')}>
-            Marketplace
+            Mercado
           </button>
           <button className={activeTab === 'my-entries' ? 'btn-primary' : 'btn-secondary'} onClick={() => {
             if (!user) login();
             else setActiveTab('my-entries');
           }}>
-            My Entries
+            Minhas Inscrições
           </button>
         </div>
 
         {activeTab === 'auctions' && (
           <div>
-            <h2>Active Auctions</h2>
+            <h2>Leilões Ativos</h2>
             <div className="grid">
               {auctions.map(a => (
                 <div key={a.id} className="glass-panel">
-                  <h3>{new Date(a.date).toLocaleString()}</h3>
+                  <h3>{new Date(a.date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' })}</h3>
                   <div className="stats-row">
-                    <span>Seller:</span>
+                    <span>Vendedor:</span>
                     <span>{a.originalOwner}</span>
                   </div>
                   <div className="stats-row">
-                    <span>Starting Price:</span>
+                    <span>Preço Base:</span>
                     <span className="stat-value">🪙 {a.startingPrice}</span>
                   </div>
                   <div className="stats-row">
-                    <span>Highest Bid:</span>
-                    <span className="stat-value">🪙 {a.highestBid || 'No bids yet'}</span>
+                    <span>Maior Licitação:</span>
+                    <span className="stat-value">🪙 {a.highestBid || 'Sem licitações'}</span>
                   </div>
                   <div className="stats-row">
-                    <span>Total Bids: {a.bidsCount}</span>
-                    <span>Expires: {new Date(a.expirationDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    <span>Total de Licitações: {a.bidsCount}</span>
+                    <span>Expira às: {new Date(a.expirationDate).toLocaleTimeString('pt-PT', {hour: '2-digit', minute:'2-digit'})}</span>
                   </div>
                   <button 
                     className="btn-primary" 
@@ -131,11 +131,11 @@ function App() {
                     disabled={user != null && a.originalOwner === user.id}
                     onClick={() => placeBid(a.id, a.startingPrice, a.highestBid)}
                   >
-                    {user != null && a.originalOwner === user.id ? 'Your Listing' : 'Place Bid'}
+                    {user != null && a.originalOwner === user.id ? 'Sua Listagem' : 'Licitar'}
                   </button>
                 </div>
               ))}
-              {auctions.length === 0 && <p>No active auctions right now.</p>}
+              {auctions.length === 0 && <p>Sem leilões ativos de momento.</p>}
             </div>
           </div>
         )}
@@ -143,29 +143,29 @@ function App() {
         {activeTab === 'my-entries' && user && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-              <h2>My Entries</h2>
+              <h2>Minhas Inscrições</h2>
               <button className="btn-primary" onClick={listForAuction}>
-                + Sell a Saturday Entry
+                + Vender Inscrição
               </button>
             </div>
             
             <div className="grid">
               {myBookings.map(b => (
                 <div key={b.id} className="glass-panel">
-                  <h3>{new Date(b.date).toLocaleString()}</h3>
+                  <h3>{new Date(b.date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' })}</h3>
                   <div className="stats-row">
-                    <span>Status:</span>
+                    <span>Estado:</span>
                     {b.hasAuction ? (
                       <span className={`badge ${b.auctionActive ? 'badge-active' : 'badge-inactive'}`}>
-                        {b.auctionActive ? 'On Auction' : 'Auction Ended / Sold'}
+                        {b.auctionActive ? 'Em Leilão' : 'Terminado / Vendido'}
                       </span>
                     ) : (
-                      <span className="badge badge-active">Won / Secured</span>
+                      <span className="badge badge-active">Ganha / Garantida</span>
                     )}
                   </div>
                 </div>
               ))}
-              {myBookings.length === 0 && <p>You have no entries.</p>}
+              {myBookings.length === 0 && <p>Não tens inscrições.</p>}
             </div>
           </div>
         )}
