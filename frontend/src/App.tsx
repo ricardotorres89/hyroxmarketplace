@@ -76,7 +76,7 @@ function App() {
   };
 
   const openBid = (a: Auction) => {
-    alert("Da próxima vez, marca a aula a horas! 😂");
+    showNotification("Da próxima vez, marca a aula a horas! 😂", "error");
   };
 
   const submitBid = async () => {
