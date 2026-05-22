@@ -1,0 +1,16 @@
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+
+# DB
+*.db
+*.db-shm
+*.db-wal
