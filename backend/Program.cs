@@ -168,7 +168,7 @@ api.MapPost("/auctions/sell", (AppDbContext db, [FromQuery] string userId, [From
     };
     db.Auctions.Add(auction);
     db.SaveChanges();
-    return Results.Ok(auction);
+    return Results.Ok(new { auction.Id, auction.StartingPrice, auction.ExpirationDate });
 });
 
 api.MapGet("/auctions", (AppDbContext db) =>
@@ -214,7 +214,7 @@ api.MapPost("/auctions/{id}/bid", (AppDbContext db, int id, [FromQuery] string u
     };
     db.Bids.Add(bid);
     db.SaveChanges();
-    return Results.Ok(bid);
+    return Results.Ok(new { bid.Id, bid.Amount, bid.UserId, bid.AuctionId });
 });
 
 // Fallback to index.html for SPA routing
