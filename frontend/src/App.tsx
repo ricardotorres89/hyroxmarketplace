@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-const API_BASE = 'http://localhost:5078/api'; // For local dev
+const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:5078/api';
 
 // Types
 type User = { id: string; gymStarCoins: number };
@@ -9,42 +9,43 @@ type Auction = { id: number; date: string; startingPrice: number; expirationDate
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [usernameInput, setUsernameInput] = useState('');
   const [activeTab, setActiveTab] = useState<'auctions' | 'my-entries'>('auctions');
-
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [myBookings, setMyBookings] = useState<Booking[]>([]);
 
   const login = async () => {
-    if (!usernameInput) return;
-    const res = await fetch(`${API_BASE}/me/${usernameInput}`);
+    const username = prompt("Enter your username:");
+    if (!username) return;
+    const res = await fetch(`${API_BASE}/me/${username}`);
     if (res.ok) {
       setUser(await res.json());
     }
   };
 
   const loadData = async () => {
-    if (!user) return;
     if (activeTab === 'auctions') {
       const res = await fetch(`${API_BASE}/auctions`);
-      setAuctions(await res.json());
-    } else if (activeTab === 'my-entries') {
-      const res = await fetch(`${API_BASE}/my-bookings/${user.id}`);
-      setMyBookings(await res.json());
+      if (res.ok) setAuctions(await res.json());
+    } 
+    
+    if (user) {
+      if (activeTab === 'my-entries') {
+        const res = await fetch(`${API_BASE}/my-bookings/${user.id}`);
+        if (res.ok) setMyBookings(await res.json());
+      }
+      const res2 = await fetch(`${API_BASE}/me/${user.id}`);
+      if (res2.ok) setUser(await res2.json());
     }
-    // Refresh user balance too
-    const res = await fetch(`${API_BASE}/me/${user.id}`);
-    if (res.ok) setUser(await res.json());
   };
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000); // Polling every 5s
+    const interval = setInterval(loadData, 5000); 
     return () => clearInterval(interval);
   }, [user, activeTab]);
 
   const listForAuction = async () => {
-    if (!user) return;
+    if (!user) { alert("Please login first."); login(); return; }
     const price = prompt("Enter starting price (GymStar coins):", "100");
     if (!price) return;
     const duration = prompt("Enter duration in hours:", "24");
@@ -59,7 +60,7 @@ function App() {
   };
 
   const placeBid = async (auctionId: number, startingPrice: number, highestBid: number) => {
-    if (!user) return;
+    if (!user) { alert("Please login first."); login(); return; }
     const minBid = highestBid ? highestBid + 1 : startingPrice;
     const bidAmount = prompt(`Enter bid amount (Minimum ${minBid}):`, minBid.toString());
     if (!bidAmount) return;
@@ -69,38 +70,22 @@ function App() {
     else alert(await res.text());
   };
 
-  if (!user) {
-    return (
-      <div className="container animate-fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="glass-panel" style={{ width: '400px', textAlign: 'center' }}>
-          <h1 className="text-gradient">GymStar Trofa</h1>
-          <p style={{ marginBottom: '2rem', color: 'var(--text-secondary)' }}>Second-Hand Saturday Entries</p>
-          <input 
-            type="text" 
-            className="input-field" 
-            placeholder="Enter your username" 
-            value={usernameInput} 
-            onChange={e => setUsernameInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && login()}
-          />
-          <button className="btn-primary" style={{ width: '100%' }} onClick={login}>
-            Enter Marketplace
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="animate-fade-in">
-      <header>
-        <div className="logo text-gradient">GymStar Hyrox</div>
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <header className="header-mobile">
+        <div className="logo text-gradient">Hyrox Marketplace</div>
         <div className="user-info">
-          <span>{user.id}</span>
-          <div className="coin-badge">
-            🪙 {user.gymStarCoins} Coins
-          </div>
-          <button className="btn-secondary" onClick={() => setUser(null)} style={{ padding: '0.4rem 1rem' }}>Logout</button>
+          {user ? (
+            <>
+              <span className="hide-mobile">{user.id}</span>
+              <div className="coin-badge">
+                🪙 {user.gymStarCoins}
+              </div>
+              <button className="btn-secondary" onClick={() => setUser(null)} style={{ padding: '0.4rem 1rem' }}>Logout</button>
+            </>
+          ) : (
+            <button className="btn-primary" onClick={login} style={{ padding: '0.4rem 1rem' }}>Login</button>
+          )}
         </div>
       </header>
 
@@ -109,7 +94,10 @@ function App() {
           <button className={activeTab === 'auctions' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('auctions')}>
             Marketplace
           </button>
-          <button className={activeTab === 'my-entries' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('my-entries')}>
+          <button className={activeTab === 'my-entries' ? 'btn-primary' : 'btn-secondary'} onClick={() => {
+            if (!user) login();
+            else setActiveTab('my-entries');
+          }}>
             My Entries
           </button>
         </div>
@@ -135,15 +123,15 @@ function App() {
                   </div>
                   <div className="stats-row">
                     <span>Total Bids: {a.bidsCount}</span>
-                    <span>Expires: {new Date(a.expirationDate).toLocaleTimeString()}</span>
+                    <span>Expires: {new Date(a.expirationDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                   </div>
                   <button 
                     className="btn-primary" 
                     style={{ width: '100%' }} 
-                    disabled={a.originalOwner === user.id}
+                    disabled={user != null && a.originalOwner === user.id}
                     onClick={() => placeBid(a.id, a.startingPrice, a.highestBid)}
                   >
-                    {a.originalOwner === user.id ? 'Your Listing' : 'Place Bid'}
+                    {user != null && a.originalOwner === user.id ? 'Your Listing' : 'Place Bid'}
                   </button>
                 </div>
               ))}
@@ -152,9 +140,9 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'my-entries' && (
+        {activeTab === 'my-entries' && user && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
               <h2>My Entries</h2>
               <button className="btn-primary" onClick={listForAuction}>
                 + Sell a Saturday Entry

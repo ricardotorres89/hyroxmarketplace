@@ -44,7 +44,20 @@ using (var scope = app.Services.CreateScope())
         var upcomingSaturday = DateTime.Today.AddDays((int)DayOfWeek.Saturday - (int)DateTime.Today.DayOfWeek);
         if (upcomingSaturday <= DateTime.Today) upcomingSaturday = upcomingSaturday.AddDays(7);
         
-        db.ClassSessions.Add(new ClassSession { Date = upcomingSaturday.AddHours(10), Capacity = 50 }); // 10 AM Saturday
+        var session = new ClassSession { Date = upcomingSaturday.AddHours(10), Capacity = 50 };
+        db.ClassSessions.Add(session);
+        
+        var booking = new Booking { ClassSession = session, UserId = "john" };
+        db.Bookings.Add(booking);
+        
+        var auction = new Auction
+        {
+            Booking = booking,
+            StartingPrice = 100,
+            ExpirationDate = DateTime.UtcNow.AddDays(2)
+        };
+        db.Auctions.Add(auction);
+
         db.SaveChanges();
     }
 }
