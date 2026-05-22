@@ -16,6 +16,14 @@ function App() {
   // Modal State
   const [modalType, setModalType] = useState<'login' | 'bid' | 'sell' | null>(null);
   const [modalData, setModalData] = useState<any>({});
+  
+  // Notification State
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+
+  const showNotification = (message: string, type: 'success' | 'error') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   const loadData = async () => {
     if (activeTab === 'auctions') {
@@ -47,7 +55,8 @@ function App() {
     if (res.ok) {
       setUser(await res.json());
       setModalType(null);
-    }
+      showNotification("Bem-vindo!", "success");
+    } else showNotification(await res.text(), "error");
   };
 
   const openSell = () => {
@@ -61,8 +70,9 @@ function App() {
     const res = await fetch(`${API_BASE}/auctions/sell?userId=${user.id}&startingPrice=${modalData.price}&durationHours=${modalData.duration}`, { method: 'POST' });
     if (res.ok) {
         setModalType(null);
+        showNotification("Inscrição listada para leilão com sucesso!", "success");
         loadData();
-    } else alert(await res.text());
+    } else showNotification(await res.text(), "error");
   };
 
   const openBid = (a: Auction) => {
@@ -77,13 +87,33 @@ function App() {
     const res = await fetch(`${API_BASE}/auctions/${modalData.auctionId}/bid?userId=${user.id}&amount=${modalData.amount}`, { method: 'POST' });
     if (res.ok) {
         setModalType(null);
+        showNotification("Licitação efetuada com sucesso!", "success");
         loadData();
-    } else alert(await res.text());
+    } else showNotification(await res.text(), "error");
   };
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       
+      {/* Toast Notification */}
+      {notification && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          background: notification.type === 'success' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(239, 68, 68, 0.9)',
+          color: 'white',
+          padding: '1rem',
+          borderRadius: '8px',
+          zIndex: 2000,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          backdropFilter: 'blur(8px)',
+          fontWeight: 600
+        }} className="animate-fade-in">
+          {notification.message || (notification.type === 'error' ? 'Ocorreu um erro' : 'Sucesso')}
+        </div>
+      )}
+
       {/* Modals */}
       {modalType && (
         <div className="modal-overlay">
