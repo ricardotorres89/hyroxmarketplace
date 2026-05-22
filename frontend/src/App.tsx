@@ -5,7 +5,7 @@ const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:5078/api';
 // Types
 type User = { id: string; gymStarCoins: number };
 type Booking = { id: number; date: string; hasAuction: boolean; auctionActive: boolean };
-type Auction = { id: number; date: string; startingPrice: number; expirationDate: string; highestBid: number; bidsCount: number; originalOwner: string };
+type Auction = { id: number; date: string; startingPrice: number; expirationDate: string; highestBid: number; highestBidder: string | null; bidsCount: number; originalOwner: string };
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -13,14 +13,9 @@ function App() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [myBookings, setMyBookings] = useState<Booking[]>([]);
 
-  const login = async () => {
-    const username = prompt("Introduza o seu nome de utilizador:");
-    if (!username) return;
-    const res = await fetch(`${API_BASE}/me/${username}`);
-    if (res.ok) {
-      setUser(await res.json());
-    }
-  };
+  // Modal State
+  const [modalType, setModalType] = useState<'login' | 'bid' | 'sell' | null>(null);
+  const [modalData, setModalData] = useState<any>({});
 
   const loadData = async () => {
     if (activeTab === 'auctions') {
@@ -44,34 +39,93 @@ function App() {
     return () => clearInterval(interval);
   }, [user, activeTab]);
 
-  const listForAuction = async () => {
-    if (!user) { alert("Por favor, inicie sessão primeiro."); login(); return; }
-    const price = prompt("Introduzir preço base (Moedas GymStar):", "100");
-    if (!price) return;
-    const duration = prompt("Introduzir duração em horas:", "24");
-    if (!duration) return;
-
-    const res = await fetch(`${API_BASE}/auctions/sell?userId=${user.id}&startingPrice=${price}&durationHours=${duration}`, { method: 'POST' });
+  const openLogin = () => { setModalData({ username: '' }); setModalType('login'); };
+  
+  const submitLogin = async () => {
+    if (!modalData.username) return;
+    const res = await fetch(`${API_BASE}/me/${modalData.username}`);
     if (res.ok) {
-        alert("Inscrição listada para leilão com sucesso!");
-        loadData();
+      setUser(await res.json());
+      setModalType(null);
     }
-    else alert(await res.text());
   };
 
-  const placeBid = async (auctionId: number, startingPrice: number, highestBid: number) => {
-    if (!user) { alert("Por favor, inicie sessão primeiro."); login(); return; }
-    const minBid = highestBid ? highestBid + 1 : startingPrice;
-    const bidAmount = prompt(`Introduzir valor da licitação (Mínimo ${minBid}):`, minBid.toString());
-    if (!bidAmount) return;
+  const openSell = () => {
+    if (!user) { openLogin(); return; }
+    setModalData({ price: 100, duration: 24 });
+    setModalType('sell');
+  };
 
-    const res = await fetch(`${API_BASE}/auctions/${auctionId}/bid?userId=${user.id}&amount=${bidAmount}`, { method: 'POST' });
-    if (res.ok) loadData();
-    else alert(await res.text());
+  const submitSell = async () => {
+    if (!user) return;
+    const res = await fetch(`${API_BASE}/auctions/sell?userId=${user.id}&startingPrice=${modalData.price}&durationHours=${modalData.duration}`, { method: 'POST' });
+    if (res.ok) {
+        setModalType(null);
+        loadData();
+    } else alert(await res.text());
+  };
+
+  const openBid = (a: Auction) => {
+    if (!user) { openLogin(); return; }
+    const minBid = a.highestBid ? a.highestBid + 1 : a.startingPrice;
+    setModalData({ auctionId: a.id, minBid, amount: minBid });
+    setModalType('bid');
+  };
+
+  const submitBid = async () => {
+    if (!user) return;
+    const res = await fetch(`${API_BASE}/auctions/${modalData.auctionId}/bid?userId=${user.id}&amount=${modalData.amount}`, { method: 'POST' });
+    if (res.ok) {
+        setModalType(null);
+        loadData();
+    } else alert(await res.text());
   };
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      
+      {/* Modals */}
+      {modalType && (
+        <div className="modal-overlay">
+          <div className="modal animate-fade-in">
+            {modalType === 'login' && (
+              <>
+                <h2>Entrar</h2>
+                <input type="text" className="input-field" placeholder="Nome de utilizador" value={modalData.username} onChange={e => setModalData({...modalData, username: e.target.value})} />
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                  <button className="btn-secondary" onClick={() => setModalType(null)}>Cancelar</button>
+                  <button className="btn-primary" onClick={submitLogin}>Confirmar</button>
+                </div>
+              </>
+            )}
+            {modalType === 'sell' && (
+              <>
+                <h2>Vender Inscrição</h2>
+                <label style={{color: 'var(--text-secondary)'}}>Preço Base (Moedas GymStar):</label>
+                <input type="number" className="input-field" value={modalData.price} onChange={e => setModalData({...modalData, price: parseInt(e.target.value)})} />
+                <label style={{color: 'var(--text-secondary)'}}>Duração (Horas):</label>
+                <input type="number" className="input-field" value={modalData.duration} onChange={e => setModalData({...modalData, duration: parseInt(e.target.value)})} />
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                  <button className="btn-secondary" onClick={() => setModalType(null)}>Cancelar</button>
+                  <button className="btn-primary" onClick={submitSell}>Listar</button>
+                </div>
+              </>
+            )}
+            {modalType === 'bid' && (
+              <>
+                <h2>Fazer uma Licitação</h2>
+                <label style={{color: 'var(--text-secondary)'}}>Valor (Mínimo {modalData.minBid}):</label>
+                <input type="number" className="input-field" value={modalData.amount} onChange={e => setModalData({...modalData, amount: parseInt(e.target.value)})} />
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                  <button className="btn-secondary" onClick={() => setModalType(null)}>Cancelar</button>
+                  <button className="btn-primary" onClick={submitBid}>Licitar</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <header className="header-mobile">
         <div className="logo text-gradient">Aulas de sabado hyrox marketplace</div>
         <div className="user-info">
@@ -84,7 +138,7 @@ function App() {
               <button className="btn-secondary" onClick={() => setUser(null)} style={{ padding: '0.4rem 1rem' }}>Sair</button>
             </>
           ) : (
-            <button className="btn-primary" onClick={login} style={{ padding: '0.4rem 1rem' }}>Entrar</button>
+            <button className="btn-primary" onClick={openLogin} style={{ padding: '0.4rem 1rem' }}>Entrar</button>
           )}
         </div>
       </header>
@@ -95,7 +149,7 @@ function App() {
             Mercado
           </button>
           <button className={activeTab === 'my-entries' ? 'btn-primary' : 'btn-secondary'} onClick={() => {
-            if (!user) login();
+            if (!user) openLogin();
             else setActiveTab('my-entries');
           }}>
             Minhas Inscrições
@@ -119,7 +173,14 @@ function App() {
                   </div>
                   <div className="stats-row">
                     <span>Maior Licitação:</span>
-                    <span className="stat-value">🪙 {a.highestBid || 'Sem licitações'}</span>
+                    <span className="stat-value" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      🪙 {a.highestBid || '0'}
+                      {a.highestBidder && (
+                        <span className="badge badge-active" style={{ fontSize: '0.7rem' }}>
+                          {a.highestBidder}
+                        </span>
+                      )}
+                    </span>
                   </div>
                   <div className="stats-row">
                     <span>Total de Licitações: {a.bidsCount}</span>
@@ -129,7 +190,7 @@ function App() {
                     className="btn-primary" 
                     style={{ width: '100%' }} 
                     disabled={user != null && a.originalOwner === user.id}
-                    onClick={() => placeBid(a.id, a.startingPrice, a.highestBid)}
+                    onClick={() => openBid(a)}
                   >
                     {user != null && a.originalOwner === user.id ? 'Sua Listagem' : 'Licitar'}
                   </button>
@@ -144,7 +205,7 @@ function App() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
               <h2>Minhas Inscrições</h2>
-              <button className="btn-primary" onClick={listForAuction}>
+              <button className="btn-primary" onClick={openSell}>
                 + Vender Inscrição
               </button>
             </div>

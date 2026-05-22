@@ -186,6 +186,7 @@ api.MapGet("/auctions", (AppDbContext db) =>
             a.StartingPrice,
             a.ExpirationDate,
             HighestBid = a.Bids.OrderByDescending(b => b.Amount).Select(b => b.Amount).FirstOrDefault(),
+            HighestBidder = a.Bids.OrderByDescending(b => b.Amount).Select(b => b.UserId).FirstOrDefault(),
             BidsCount = a.Bids.Count
         }).ToList();
     return Results.Ok(auctions);
