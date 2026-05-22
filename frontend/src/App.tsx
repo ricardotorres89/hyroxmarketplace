@@ -75,7 +75,7 @@ function App() {
     } else showNotification(await res.text(), "error");
   };
 
-  const openBid = (a: Auction) => {
+  const openBid = () => {
     showNotification("Da próxima vez, marca a aula a horas! 😂", "error");
   };
 
@@ -217,7 +217,7 @@ function App() {
                     className="btn-primary" 
                     style={{ width: '100%' }} 
                     disabled={user != null && a.originalOwner === user.id}
-                    onClick={() => openBid(a)}
+                    onClick={() => openBid()}
                   >
                     {user != null && a.originalOwner === user.id ? 'Sua Listagem' : 'Licitar'}
                   </button>
