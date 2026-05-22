@@ -76,10 +76,7 @@ function App() {
   };
 
   const openBid = (a: Auction) => {
-    if (!user) { openLogin(); return; }
-    const minBid = a.highestBid ? a.highestBid + 1 : a.startingPrice;
-    setModalData({ auctionId: a.id, minBid, amount: minBid });
-    setModalType('bid');
+    alert("Da próxima vez, marca a aula a horas! 😂");
   };
 
   const submitBid = async () => {
